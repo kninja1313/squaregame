@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Square Practice Game</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 560px;
+    background: white;
+    padding: 30px;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  h1 { margin-bottom: 20px; }
+
+  input {
+    padding: 10px;
+    font-size: 18px;
+    width: 100%;
+    margin: 6px 0 16px;
+    text-align: center;
+  }
+
+  button {
+    padding: 12px 24px;
+    font-size: 18px;
+    border: none;
+    border-radius: 10px;
+    background: #1d4ed8;
+    color: white;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #1e40af;
+  }
+
+  .big {
+    font-size: 70px;
+    font-weight: bold;
+    margin: 20px 0;
+  }
+
+  .timer {
+    font-size: 28px;
+    font-weight: bold;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  td {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+  }
+
+  th {
+    text-align: left;
+    border-bottom: 2px solid #ddd;
+  }
+
+  .best {
+    background: #fefce8;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="card" id="menu">
+  <h1>Square Practice</h1>
+
+  <input id="min" type="number" placeholder="Min (default 1)" value="1">
+  <input id="max" type="number" placeholder="Max (default 20)" value="20">
+  <input id="time" type="number" placeholder="Time (seconds)" value="60">
+
+  <button onclick="startGame()">Start Game</button>
+
+  <div id="gameOver"></div>
+</div>
+
+<div class="card" id="game" style="display:none;">
+  <div class="timer" id="timer">Time: 0</div>
+  <div class="big" id="question">0²</div>
+
+  <input id="answer" type="number" placeholder="Answer" oninput="checkAnswer()">
+
+  <div style="margin-top:10px;font-size:20px;">
+    Score: <span id="score">0</span>
+  </div>
+</div>
+
+<div class="card" id="scores">
+  <h2>Best Scores</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Score</th>
+        <th>Range</th>
+        <th>Time</th>
+        <th>Date</th>
+      </tr>
+    </thead>
+    <tbody id="scoreTable"></tbody>
+  </table>
+</div>
+
+<script>
+const STORAGE_KEY = "square-practice-scores";
+let min, max, timeLimit;
+let score = 0;
+let current = 0;
+let timeLeft = 0;
+let timer = null;
+
+function random(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function loadScores() {
+  return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+}
+
+function saveScore(entry) {
+  const scores = loadScores();
+  scores.push(entry);
+  scores.sort((a,b) => b.score - a.score);
+  const trimmed = scores.slice(0,10);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+  return trimmed;
+}
+
+function renderScores() {
+  const scores = loadScores();
+  const table = document.getElementById("scoreTable");
+  table.innerHTML = "";
+
+  scores.forEach((s,i) => {
+    table.innerHTML += `
+      <tr class="${i===0?'best':''}">
+        <td>${i+1}</td>
+        <td>${s.score}</td>
+        <td>${s.min}-${s.max}</td>
+        <td>${s.timeLimit}s</td>
+        <td>${new Date(s.date).toLocaleDateString()}</td>
+      </tr>
+    `;
+  });
+}
+
+function next() {
+  current = random(min,max);
+  document.getElementById("question").innerText = current + "²";
+  document.getElementById("answer").value = "";
+  document.getElementById("answer").focus();
+}
+
+function startGame() {
+  min = Number(document.getElementById("min").value);
+  max = Number(document.getElementById("max").value);
+  timeLimit = Number(document.getElementById("time").value);
+
+  if (min > max) return alert("Min > Max");
+  if (timeLimit <= 0) return alert("Invalid time");
+
+  score = 0;
+  timeLeft = timeLimit;
+
+  document.getElementById("menu").style.display = "none";
+  document.getElementById("game").style.display = "block";
+
+  document.getElementById("score").innerText = score;
+
+  next();
+
+  timer = setInterval(() => {
+    timeLeft--;
+    document.getElementById("timer").innerText = "Time: " + timeLeft;
+
+    if (timeLeft <= 0) {
+      clearInterval(timer);
+      endGame();
+    }
+  }, 1000);
+}
+
+function checkAnswer() {
+  const val = Number(document.getElementById("answer").value);
+  if (!val) return;
+
+  if (val === current * current) {
+    score++;
+    document.getElementById("score").innerText = score;
+    next();
+  }
+}
+
+function endGame() {
+  document.getElementById("game").style.display = "none";
+  document.getElementById("menu").style.display = "block";
+
+  saveScore({
+    score,
+    min,
+    max,
+    timeLimit,
+    date: new Date().toISOString()
+  });
+
+  renderScores();
+
+  document.getElementById("gameOver").innerHTML =
+    `<h3>Game Over! Score: ${score}</h3>`;
+}
+
+renderScores();
+</script>
+
+</body>
+</html>
